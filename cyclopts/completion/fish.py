@@ -574,6 +574,14 @@ def _generate_subcommand_completions(
     if not commands:
         return []
 
+    first_pos_arg = next(
+        (argument for argument in data.own_arguments if argument.show and argument.index == 0),
+        None,
+    )
+
+    force_files = first_pos_arg is not None and get_completion_action(first_pos_arg.hint) == CompletionAction.FILES
+    completion_flags = "-F " if force_files else ""
+
     lines = []
     if command_path:
         lines.append(f"# Subcommands for: {' '.join(command_path)}")
@@ -589,7 +597,9 @@ def _generate_subcommand_completions(
             escaped_desc = _escape_fish_description(desc)
             escaped_cmd = _escape_fish_string(cmd_name)
 
-            lines.append(f"complete -c {prog_name} {condition} -a '{escaped_cmd}' -d '{escaped_desc}'")
+            lines.append(
+                f"complete -c {prog_name} {completion_flags}{condition} -a '{escaped_cmd}' -d '{escaped_desc}'"
+            )
 
     return lines
 
