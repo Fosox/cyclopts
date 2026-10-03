@@ -1,5 +1,6 @@
 """Tests for fish completion script generation."""
 
+from pathlib import Path
 from typing import Annotated, Literal
 
 import pytest
@@ -55,6 +56,50 @@ def test_command_completion(fish_tester):
     tester = fish_tester(app_basic, "basic")
 
     assert "deploy" in tester.completion_script
+
+
+def test_subcommand_completion_disables_file_fallback(fish_tester, tmp_path, monkeypatch):
+    """Static subcommands should not trigger Fish's default file completion."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "sentinel.txt").touch()
+
+    tester = fish_tester(app_basic, "basic")
+    completions = tester.get_completions("basic ")
+
+    assert "deploy" in completions
+    assert "sentinel.txt" not in completions
+
+
+def test_subcommand_completion_force_files_for_root_path(fish_tester, tmp_path, monkeypatch):
+    """A root Path positional enables file fallback only at the root."""
+    app = App(name="subcommands")
+    subapp = App(name="install")
+
+    @app.default
+    def main(path: Path):
+        pass
+
+    @app.command
+    def deploy():
+        pass
+
+    @subapp.command
+    def package():
+        pass
+
+    app.command(subapp)
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "sentinel.txt").touch()
+
+    tester = fish_tester(app, "subcommands")
+    completions = tester.get_completions("subcommands ")
+    subcmd_completions = tester.get_completions("subcommands install ")
+
+    assert "deploy" in completions
+    assert "sentinel.txt" in completions
+    assert "package" in subcmd_completions
+    assert "sentinel.txt" not in subcmd_completions
 
 
 def test_literal_value_completion(fish_tester):
